@@ -391,6 +391,13 @@ def parse_kimi(lines: list[str]) -> dict:
 
 
 def parse_grok(lines: list[str]) -> dict:
+    """grok -p --output-format streaming-json events.
+
+    Verified empirically: answer text arrives as token-level
+    {"type": "text", "data": "..."} events (joined WITHOUT separators);
+    reasoning arrives as "thought" events (excluded from the answer);
+    the final {"type": "end"} event carries sessionId, usage and cost.
+    """
     out = {"text": "", "tokens_in": 0, "tokens_out": 0,
            "cost_usd": None, "session_id": None, "error": None}
     chunks = []
@@ -398,9 +405,14 @@ def parse_grok(lines: list[str]) -> dict:
         t = ev.get("type")
         if t == "end":
             out["cost_usd"] = ev.get("total_cost_usd")
+            out["session_id"] = ev.get("sessionId") or ev.get("session_id")
             u = ev.get("usage") or {}
             out["tokens_in"] = u.get("input_tokens") or u.get("inputTokens") or 0
             out["tokens_out"] = u.get("output_tokens") or u.get("outputTokens") or 0
+        elif t == "text":
+            data = ev.get("data")
+            if isinstance(data, str):
+                chunks.append(data)
         elif t in ("assistant", "message"):
             c = ev.get("message", {}).get("content") or ev.get("content")
             if isinstance(c, list):
@@ -408,7 +420,7 @@ def parse_grok(lines: list[str]) -> dict:
             elif isinstance(c, str):
                 chunks.append(c)
     if not out["text"]:
-        out["text"] = "\n".join(chunks).strip()
+        out["text"] = "".join(chunks).strip()
     return out
 
 

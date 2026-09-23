@@ -29,7 +29,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dispatch_checker import (run_one, default_env_file,  # noqa: E402
-                              load_default_model, load_model_config)
+                              load_default_model, load_model_config,
+                              PARSERS)
 
 _here = Path(__file__).resolve().parent
 DEFAULT_TEMPLATE = _here.parent / "references" / "checker-prompt.md"
@@ -214,6 +215,10 @@ def main() -> int:
     ap.add_argument("--env-file", default=None)
     ap.add_argument("--dry-run", action="store_true",
                     help="render prompts and show the plan without dispatching")
+    ap.add_argument("--remerge", action="store_true",
+                    help="re-parse existing batch-NN/stream.ndjson files with the "
+                         "current harness parser and rewrite verdicts/summary/cost "
+                         "outputs without re-dispatching (use after parser fixes)")
     args = ap.parse_args()
 
     claims = json.loads(Path(args.claims).read_text())
@@ -252,6 +257,57 @@ def main() -> int:
             print(f"  {b['name']}: {len(b['claims'])} claims "
                   f"-> {b['dir'] / 'prompt.txt'}")
         return 0
+
+    if args.remerge:
+        # Rebuild merged outputs from on-disk batch artifacts: stream.ndjson is
+        # re-parsed with the (possibly fixed) harness parser, answer.md is
+        # rewritten, verdicts re-extracted. result.json is reused for
+        # tokens/cost/status. Nothing is re-dispatched.
+        results = []
+        for b in batches:
+            bdir = b["dir"]
+            stream = bdir / "stream.ndjson"
+            prev = {}
+            rjson = bdir / "result.json"
+            if rjson.is_file():
+                try:
+                    prev = json.loads(rjson.read_text())
+                except ValueError:
+                    prev = {}
+            if not stream.is_file():
+                results.append({"batch": b["name"],
+                                "claim_ids": [c.get("id") for c in b["claims"]],
+                                "status": "error", "tokens_in": 0, "tokens_out": 0,
+                                "cost_usd": None, "cost_usd_est": None,
+                                "duration_s": 0, "verdicts": None,
+                                "error": "no stream.ndjson"})
+                continue
+            parsed = PARSERS[args.harness](stream.read_text().splitlines())
+            answer = parsed.get("text") or ""
+            (bdir / "answer.md").write_text(answer)
+            verdicts = extract_json_array(answer)
+            # Prefer freshly parsed usage when non-zero: the point of a
+            # remerge is that the parser was fixed, so a stale 0 recorded by
+            # the buggy parser must not shadow the corrected numbers.
+            results.append({
+                "batch": b["name"],
+                "claim_ids": [c.get("id") for c in b["claims"]],
+                "status": prev.get("status", "ok"),
+                "tokens_in": parsed.get("tokens_in") or prev.get("tokens_in", 0),
+                "tokens_out": parsed.get("tokens_out") or prev.get("tokens_out", 0),
+                "cost_usd": parsed.get("cost_usd") or prev.get("cost_usd"),
+                "cost_usd_est": prev.get("cost_usd_est"),
+                "duration_s": prev.get("duration_s", 0),
+                "verdicts": verdicts,
+            })
+            print(f"  {b['name']}: remerged ({len(verdicts or [])} verdicts)")
+        summary = write_run_outputs(out_dir, results, len(claims), 0.0,
+                                    args.harness, model)
+        print(json.dumps(summary, indent=2))
+        print(f"\nverdicts      -> {out_dir / 'verdicts.jsonl'}")
+        print(f"cost report   -> {out_dir / 'cost_report.md'}")
+        ok = summary["batches_ok"]
+        return 0 if ok == len(batches) else (1 if ok else 2)
 
     started = time.time()
     results: list[dict] = []
