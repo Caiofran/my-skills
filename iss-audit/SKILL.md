@@ -159,18 +159,64 @@ Rate:
 - product/architecture fit;
 - documentation expectations.
 
+**Uncertainty is a trigger to research, not a reason to defer.** Before
+assigning any outcome that leaves a ticket unresolved — `Decline`, `Needs
+reporter information`, or a "not now / backlog / design-first" deferral — the
+doubt behind it must be resolved into concrete evidence. A valid ticket may be
+set aside ONLY when a bounded research-and-plan pass shows one of:
+
+- **it would break us** — name the invariant, public contract, migration, or
+  test it violates, and the file/rule that traces to;
+- **it is not worth it** — the concrete cost (maintenance, dependency,
+  complexity, blast radius) clearly exceeds the demonstrated value, stated as a
+  comparison rather than a vibe;
+- **it strays from the project's goals** — cite the goal/architecture/design
+  doc it conflicts with.
+
+"I am not sure it is feasible / worth it / in scope" is none of these — it is
+the signal to spend a bounded pass finding out: trace the code, sketch the
+smallest viable implementation, read the goals/architecture docs, and check the
+obvious primary sources. Only after that pass, with no blocking reason found, is
+the ticket actionable — and then it IS actioned, not shelved. A large or
+boundary-touching but valid ticket is not "backlog": it is `Fix with design
+caution` carrying a concrete plan (design note + slices), where the plan is the
+resolution path — owned and scheduled — not an indefinite shelf. When resolving
+a batch, prefer landing the resolvable slice now (a docs clarification, the
+tractable sub-case, the bug half of a mixed report) over deferring the whole
+ticket.
+
+This anti-deferral rule covers only **worth / feasibility / scope** doubt. It
+never lowers the safety or quality bar, which resolves in the opposite
+direction: a security, data-loss, or malicious-report concern (Phases 0–3) is
+`Fix now`/`Fix with design caution`/private-advisory — never `Decline`d away on
+doubt, and never downplayed to reach a tidier verdict; when a safety doubt
+cannot be resolved, escalate and treat it as real, not benign. And when a
+ticket IS actioned, the fix must be clean — no dead code, speculative
+abstraction, drive-by churn, weakened tests, or swallowed errors (that
+discipline is enforced at execution by `github-resolution`). Refusing to defer
+a resolvable ticket must not become an excuse to land it sloppily or to admit
+risk: letting malicious code or slop in is the worst outcome; being slow on a
+merely-uncertain good change is a lesser one.
+
 Outcomes:
 
-- `Fix now`: confirmed, bounded, testable defect.
-- `Fix with design caution`: valid but changes a security/API/data boundary.
+- `Fix now`: confirmed, bounded, testable defect, or a small additive change
+  whose feasibility the research pass established.
+- `Fix with design caution`: valid but changes a security/API/data boundary, or
+  is large — carries a concrete design-first plan and named slices, not a
+  deferral in disguise.
 - `Documentation only`: implementation is correct but docs mislead.
-- `Needs reporter information`: no responsible conclusion yet.
+- `Needs reporter information`: blocked on a fact ONLY the reporter can supply
+  and that you could not obtain by research or safe reproduction — never a
+  stand-in for analysis you have not done.
 - `Duplicate/already fixed`: cite exact evidence and version.
-- `Decline`: incompatible, unsafe, or too costly relative to demonstrated value.
+- `Decline`: incompatible, unsafe, out of goals, or cost clearly exceeds value
+  — justified with the specific evidence above, never on doubt alone.
 
 Do not close as invalid merely because reproduction is missing. Do not label a
 feature request a bug without a contract. Do not accept a proposed bypass just
-because it makes the reporter's example pass.
+because it makes the reporter's example pass. Do not park a ticket as
+"backlog"/"needs info"/"design-first" to avoid the research it actually needs.
 
 ## Phase 5: Root Cause and Fix Plan
 
@@ -245,10 +291,23 @@ Security handling: public | move to private advisory | not security-sensitive
 
 ### Suggested issue response
 <concise evidence-based response without sensitive exploit detail>
+
+### If deferred/declined (Needs info | Decline | design-first not-now)
+- Research done to resolve the doubt: <what you traced/read/sketched>
+- Blocking evidence: breaks-us (<invariant/contract/test>) | not-worth
+  (<cost> vs <value>) | strays-from-goals (<goal doc>) | missing fact only the
+  reporter has (<the exact fact>)
+- If design-first: the concrete plan + first slice (so it is scheduled, not shelved)
 ```
 
+Omit the "If deferred/declined" block for anything actioned. Its presence is
+the gate: a set-aside ticket with an empty or hand-wavy block is not audited —
+go back and either find the blocking evidence or action it.
+
 For multiple issues, begin with a table and detailed sections only for issues
-requiring action or judgment.
+requiring action or judgment. In the table, a deferred row must still name its
+blocking evidence in one phrase; "backlog"/"needs info" with no evidence is not
+a verdict.
 
 ## Approved Implementation
 

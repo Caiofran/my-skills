@@ -245,7 +245,10 @@ Use these severities:
   merge when practical.
 - `[NIT]`: cosmetic only.
 - `[UNCERTAIN]`: name the missing evidence and do not convert uncertainty into
-  approval.
+  approval — or into a decline. Uncertainty is a trigger to investigate (trace
+  the diff and surrounding code, sketch the smallest correction, read the goal/
+  architecture docs, check the primary source), not a reason to stall the PR or
+  wave it away. Resolve it into evidence before the verdict.
 
 ## Phase 5: Report Before Modifying
 
@@ -275,6 +278,31 @@ Hosted gates: <results and workflow caveats>
 Recommended action: merge as-is | adjust before merge | ask author | decline
 Recommended fix: <smallest clean correction and tests>
 ```
+
+### The doubt gate is not a lowered safety bar
+
+Two axes, and they resolve in opposite directions:
+
+- **Worth / feasibility / scope doubt → investigate, don't defer.** Do not
+  `decline` or `ask author` merely because you are unsure it is feasible,
+  valuable, or in scope. Trace the diff and surrounding code, sketch the
+  smallest clean version, read the goal/architecture docs, then decide. Set the
+  PR aside only with concrete evidence: it **breaks us** (named invariant/
+  contract/test), it **is not worth it** (concrete cost vs value), or it
+  **strays from project goals** (named doc). "I did not look closely" is not a
+  verdict.
+- **Safety / quality doubt → resolve toward blocking, never toward yes.** The
+  hostile-change gate and the slop bar are non-negotiable and override this
+  gate entirely. Never "research your way to a merge" on a security or
+  correctness concern: a credible `[CRITICAL]`/`[BLOCKING]` malicious-code,
+  data-loss, auth, or supply-chain finding blocks, and a PR that is merged
+  sloppy (dead code, speculative abstraction, drive-by churn, weakened or
+  vacuous tests, swallowed errors, AI-tell noise) is a defect — it does not
+  merge until the risk or the slop is gone. When you cannot resolve a safety
+  doubt, the answer is block/contain, not approve. **Letting malicious code or
+  sloppiness in is the worst outcome; being slow to accept a merely-uncertain
+  good change is a lesser one.** The extra investigation this gate demands
+  should deepen scrutiny, not relax it.
 
 If no findings exist, say so explicitly and state residual test/security scope.
 Ask for approval before pushing changes or merging when project policy requires
