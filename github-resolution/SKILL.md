@@ -93,6 +93,11 @@ commits made under this skill. It does not include pure ticket responses
 
 ## Per-Ticket Resolution Loop
 
+Before dispatching work, dedupe the batch: tickets that share a root cause
+or a change get ONE implementation that references each of them, and a ticket
+whose reported case is already fixed on the base is closed as
+duplicate/already fixed with the commit, never reimplemented.
+
 For each approved ticket, in the audit's priority order:
 
 ### 1. Scope the change

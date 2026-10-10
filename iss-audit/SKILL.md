@@ -152,6 +152,25 @@ Inspect current trusted code and docs:
   isolation, validation, durability, privacy, compatibility, or architecture?
 - Is this one symptom of a bug class across parallel front doors?
 
+**Check before you build (mandatory).** Never implement the same thing twice.
+Before planning any fix:
+
+- **Re-run the reporter's cases on the current base branch** (and the feature
+  branch, if the project has one). Reporters are often several releases
+  behind; a case already fixed on the base is `Duplicate/already fixed` for
+  that case — cite the commit and version — and only the remaining cases are
+  work.
+- **Search open and closed issues and PRs** for the same symptom, area, or
+  proposed change (`gh issue list --state all --search`, `gh pr list --state
+  all --search`), plus recent commits and unmerged branches in this batch. An
+  open duplicate is consolidated into one ticket (link both, resolve once,
+  close the other as duplicate with a pointer); an open PR that already
+  implements the fix is audited and landed instead of writing a second one;
+  two PRs for the same change get one merged (the better one, with credit to
+  both) and the other closed with an explanation.
+- **Within a batch, dedupe before dispatching work**: two tickets that share a
+  root cause get one implementation, and each references it.
+
 **Regression-history check (mandatory).** Before treating a bug as new, search
 the project's history for a prior fix of the same symptom or area — e.g.
 `git log --all --grep=<symptom/subsystem>`, and look at the code the earlier fix
@@ -168,6 +187,12 @@ incomplete-fix**, not a fresh bug, and that changes the resolution:
   `regression of <prior fix>`), and flag it as a process signal if the same
   class has now recurred more than once (recurring cross-platform/path/line-ending
   bugs and new-adapter invariant misses are the usual repeat offenders here).
+
+**A vulnerability found while fixing something else** is not out of scope:
+fix it in the same change when it shares the code path (or in a sibling
+commit), give it an adversarial test that bites, keep the public commit message
+and issue text generic, and flag the advisory decision to the user (hard
+blocker 6 for publishing only — the fix itself still lands).
 
 Use authoritative internet sources when external behavior is current or
 version-sensitive. Prefer primary specifications and official documentation.
@@ -450,7 +475,9 @@ blocker category and evidence in one phrase; "backlog", "needs info",
 
 ## Approved Implementation
 
-When the user asks to proceed, defer execution to `github-resolution` when
+Execution belongs to `github-resolution` once the user has asked to resolve
+tickets (a request to "resolve", "fix", "proceed", or to run the audit "and
+resolve" counts); it carries every approved ticket through. Defer to it when
 available — it owns the approved-execution phase (test-first, gates-once,
 close-on-landing, left-behind summary). This section applies only when it is
 not loaded: fix one issue at a time on a normal branch/PR, re-read the issue

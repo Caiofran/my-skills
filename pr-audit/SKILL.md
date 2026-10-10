@@ -411,7 +411,27 @@ the author:
   follow-up ourselves; a PR that is one slice of a known plan → land it and
   finish the remaining slices unless one is separately blocked;
 - hosted CI not run (first-time contributor approval) → run the full trusted
-  gate locally and approve the workflow.
+  gate locally and approve the workflow;
+- an existing test suite the PR touches that CI never runs → add it to the
+  relevant CI job (a small workflow change we make, reviewed under the
+  hostile-change gate like any workflow edit);
+- a stale doc or broken link next to the change, even if the PR did not cause
+  it → fix it in a separate maintainer commit (the quality bar forbids stale
+  docs; keep it out of the contributor's commits).
+
+**Check before you build.** Before adjusting or merging, search open and
+closed PRs and issues for the same change (`gh pr list --state all --search`,
+`gh issue list --state all --search`) and re-run the PR's claimed failure on the
+current base: if the base already fixed it, or another PR does the same thing,
+merge one (the better one, crediting both) and close the other with a pointer —
+never land the same change twice. Classify the stack of the *changed files*,
+not just the repo's markers, and run gates for that stack (a Python example in
+a Rust repo needs Python tests run).
+
+**A red that counts.** "Fails on base" must be an assertion failure on the
+behaviour under test, not an import error or a missing symbol; when the new
+test cannot compile against the base, prove red by reverting only the fix
+inside the head instead.
 
 "Request changes and wait" is not a verdict. When we adjust a PR, comment on
 what we changed and why.
