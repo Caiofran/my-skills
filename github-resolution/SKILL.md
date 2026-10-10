@@ -16,6 +16,30 @@ single `main`/`master` is the default, split repos route fixes vs features
 accordingly. "Mainline" below means the branch the project's release flow
 actually reads from.
 
+## Hard Quality Bar (non-negotiable)
+
+Carrying tickets through never lowers this bar; it is what carrying through
+must deliver. Nothing lands that brings in:
+
+- **malicious code** or a supply-chain risk — any credible doubt blocks and
+  contains;
+- **bugs or regressions** — every behavior change has a test that fails
+  without it; when unsure whether something breaks, add the test that settles
+  it rather than assuming;
+- **stale documentation** — especially for new features: README/support
+  tables, guides, config/architecture references, changelog and migration
+  notes match the merged behavior. Missing or stale docs are a soft blocker we
+  fix ourselves, never a reason to merge without them;
+- **any degradation of quality or security** — slop (dead code, speculative
+  abstraction, weakened or vacuous tests, swallowed errors), weaker
+  boundaries, or lost coverage.
+
+When in doubt, double-check: re-derive from the code, add tests, and live-test
+the behavior with the project's automated end-to-end/acceptance checks (or a
+safe local run) before calling it done. Speed never trades against this bar —
+a slow correct merge beats a fast regression, and if a ticket cannot meet the
+bar after real effort, that is a hard blocker.
+
 ## Preconditions
 
 1. A `pr-audit` and/or `iss-audit` report exists in this conversation with
@@ -24,14 +48,22 @@ actually reads from.
    matching audit skill first.
 2. The user approved execution ("do it", "fix everything", "proceed", or a
    standing instruction in trusted project files).
-3. **Approved tickets only — leave the rest behind.** The only tickets this
-   skill executes are the ones whose audit verdict is an explicit approval.
-   `Needs reporter information`, `Decline`, `Duplicate`, tickets with open
-   `[BLOCKING]`/`[CRITICAL]` findings, and anything the audit left uncertain
-   are out of scope: they stay open, untouched by this run, and each one is
-   explained in the final left-behind summary. Never half-execute a blocked
-   ticket "while we're here", and never resolve a ticket the audit did not
-   approve.
+3. **Resolve everything that is not truly blocked — at the Hard Quality Bar.** The audits' carry-through
+   rule means every ticket that makes sense for the project, is not malicious,
+   and is presented as complete comes out approved — with the maintainer work
+   it needs (rebase or base merge, retarget, tests, docs, fixes for its
+   findings, its design decision, its remaining slices, or the feature itself).
+   Execute all of it in this run. Only tickets the audit left open under the
+   closed true-blocker list (pr-audit / iss-audit "Carry-through rule": hostile
+   content, author-marked draft/WIP/incomplete, steers away from the project's
+   goals (confirmation blocker — ask the user, never decide alone),
+   cannot be made safe, external dependency we cannot obtain, a decision only
+   the user can make, an RFC gathering input) stay open, and each appears in the
+   left-behind summary with its category and unblock attempt. A `[BLOCKING]`
+   finding with a clear correction is work to do, not a reason to skip. If
+   something looks blocked mid-execution, apply the same list — try to unblock
+   it first, and never drop a ticket for a reason outside it. Never resolve a
+   ticket the audit did not cover.
 4. Confirm the working tree is clean or that unrelated local changes are
    understood and excluded: `git status --short --branch`.
 
@@ -83,6 +115,32 @@ For each approved ticket, in the audit's priority order:
   integration-level check of its wiring.
 - Tests live in the project's existing suites and style — no new test
   frameworks, no parallel test empires.
+- **Fix the class, not the instance.** When the audit flagged this as a
+  recurring symptom, an incomplete prior fix, or a bug that could live at
+  sibling call sites / other front doors, the resolution must sweep the whole
+  class (every sibling site, every shell/native/generated door) and add a test
+  at each — plus the platform/edge test whose absence let it return. Landing a
+  point-fix for the one reported instance when a twin site is still broken is
+  not a resolution; it is the next regression. For a cross-platform / path /
+  line-ending / hook-bundle fix, the ticket is not closed until the platform CI
+  (e.g. the `windows` label + a green Windows job) is green on the exact SHA,
+  not just Linux. Three standing obligations when sweeping the class:
+  - **Prefer a contract test at the shared choke point over per-site
+    whack-a-mole.** If the class keeps recurring (the second filing of the
+    same symptom is the signal — e.g. placeholder escaping per vendor, env
+    scrubbing per spawn site, checksum-array parity), per-site fixes are
+    debt, not resolution: add the guard that makes the class impossible
+    (a `VendorId::all()` walk, a source-contract test, a verify-version
+    check) and treat any site the guard cannot reach as a named exception.
+  - **Data-shape changes get a consumer sweep.** When the change adds a
+    report field, a content type (e.g. grouped rows), or a shared
+    serialization index, enumerate EVERY consumer of that shape — each
+    frontend, generated parser, and hand-maintained mirror — and prove each
+    one handles the new shape, not only the consumer the ticket named.
+  - **Hand-maintained mirrors must not drift.** A list or layout duplicated
+    across languages/tools (a Swift vendor list mirroring a Rust const, a
+    FORMAT index table) gets updated in the same resolution, or gains a
+    source-contract test counting against the source of truth.
 
 ### 3. Implement cleanly — slop is a defect
 
@@ -123,9 +181,11 @@ ticket/PR and note it — do not smuggle it.
   focused gate, re-check the hostile-change gate on the new head, then merge
   with the repo's normal strategy. Merging closes the PR — GitHub does that
   automatically; verify it did.
-- For `Needs info`/`Decline`/`Duplicate` outcomes: leave the ticket behind —
-  no code, no closure. Post the audit's drafted response only when the user
-  explicitly asks for it; close only when the verdict says so.
+- For `Needs info`/`Decline`/`Blocked`/`Duplicate` outcomes (true blockers
+  only): no code; post the audit's drafted response naming the blocker and
+  what would unblock it, so the ticket is not silently parked; close only when
+  the verdict says so. For a blocker 6 decision, ask the user in the batch
+  report with the ready plan.
 - Keep PR/issue comments evidence-based and free of unverified claims.
 
 ## Final Gate (every batch, regardless of size)
@@ -210,12 +270,24 @@ Hosted CI: <run + conclusion on exact SHA>
 Clean-code check: <slop findings: none | list + fixes>
 Deploy/release: <done as requested | not requested>
 
-Left intentionally untouched (mandatory — EVERY ticket not resolved in this
-run appears here, each with its reason):
-- #N: <audit verdict / blocker> — <one-line reason it stayed open: needs
-  reporter info, declined, duplicate, blocking finding, uncertain evidence,
-  deferred by user, out of batch scope>
+Left open (mandatory — EVERY ticket not resolved in this run appears here):
+- #N: <true-blocker category: hostile | draft/WIP/incomplete per author |
+  needs user confirmation: steers from goals <goal/doc + the question> | cannot be made safe | external dependency <name>
+  | user decision needed <the question> | RFC gathering input | duplicate |
+  deferred by the user's explicit instruction <quote>> — <evidence> — <unblock
+  attempt made> — <what would unblock it>
 ```
+
+"Uncertain evidence", "out of batch scope", "needs rebase", "needs tests",
+"needs a small adjustment", "needs a small/easy decision", "design-first",
+"waiting on the contributor", and "backlog" are soft blockers, not reasons — a
+ticket with one of those was resolvable and must be resolved. Ask an author or
+reporter only for a hard blocker we cannot resolve ourselves.
+
+Security advisories (triage/draft GHSAs) and open code-scanning, Dependabot and
+secret-scanning alerts count as tickets: each one is resolved in the run or
+listed here with its state and next step. An advisory left in `triage` is a
+dropped ticket.
 
 A run that resolves three tickets and silently drops four open ones is an
 incomplete report. The left-behind list is how the user knows what still
