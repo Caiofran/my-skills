@@ -91,6 +91,12 @@ The count includes issue fixes, PR adjustments, and maintainer follow-up
 commits made under this skill. It does not include pure ticket responses
 (comments/closures with no code change).
 
+Security tickets and security fixes follow the audits' "Security reports and
+security fixes" section at execution time too: re-run the reproduction against
+the final build, re-run the hostile-change gate on the final fix diff, keep
+exploit detail out of public text, and leave advisory publishing and the patch
+release to the user.
+
 ## Per-Ticket Resolution Loop
 
 Before dispatching work, dedupe the batch: tickets that share a root cause

@@ -249,6 +249,50 @@ Classify:
 - `Not reproduced`: a responsible attempt did not fail.
 - `Insufficient information`: name the exact missing fact.
 
+## Security reports and security fixes (extra care, no panic)
+
+A security report, a scanner finding, or a fix labelled "security" gets more
+scrutiny, not less, and never a rushed merge. Work it through calmly:
+
+1. **Prove the problem exists.** Reconstruct a minimal reproduction from the
+   trusted code yourself — never run a reporter's PoC, script, payload or
+   binary — and show the failure live (against a locally built binary) or as an
+   adversarial test that fails on the base. Code reading alone is
+   `Code-inspection confirmed`, not proof, and is said so.
+2. **Rule out false positives and false reports.** Check the actual trust
+   boundary: behavior that is documented and by design (an open single-user
+   mode, a root-only route, an operator-chosen exposure) is not a
+   vulnerability. Check that the prerequisites are realistic, that the cited
+   code, version and CVE/advisory actually exist and apply (scanner and
+   AI-generated reports routinely hallucinate or misread), and that the impact
+   is not inflated or minimized. A disproven report is answered with the
+   evidence, politely; it is not "fixed" anyway.
+3. **Establish scope precisely.** When was it introduced (`git log -S`/bisect),
+   which versions and configurations are affected, what is the default
+   exposure, and what does an attacker need. This feeds the severity and the
+   advisory's affected-version range.
+4. **Treat the fix as the highest-risk diff in the batch.** Security fixes are
+   a classic vehicle for hidden or disguised malicious changes. Run the
+   hostile-change gate with extra care on every hunk: unrelated edits riding
+   along, a guard weakened elsewhere, new dependencies or network/credential
+   access, test changes that make a check vacuous, obfuscated or encoded
+   content, "temporary" bypasses or debug switches. The fix must be the
+   smallest change at the owning boundary and must not widen any other
+   boundary.
+5. **Prove the fix.** An adversarial test that fails with the guard removed and
+   passes with it, plus a legitimate control so a blanket deny is not mistaken
+   for correctness; run the reproduction again against the fixed build. Have an
+   independent pass (a fresh verifier, or a from-scratch re-derivation) try to
+   refute both the vulnerability and the fix.
+6. **Handle disclosure carefully.** Keep exploit detail out of public issues,
+   PRs and commit messages until the fix ships; use a private draft advisory
+   for the record and the CHANGELOG reference. Publishing an advisory and
+   cutting the patch release are the user's decisions (hard blocker 6), asked
+   explicitly; the fix itself still lands promptly.
+
+Do not let urgency lower the bar: a real vulnerability is fixed quickly but
+never sloppily, and a scary-sounding report is investigated, not assumed.
+
 ## Phase 4: Decide Whether and How to Resolve
 
 Rate:
